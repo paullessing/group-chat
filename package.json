@@ -2,6 +2,8 @@
   "name": "group-chat",
   "version": "0.0.1",
   "dependencies": {
-    "mocha": "^2.2.5"
+    "mocha": "^2.2.5",
+    "mockery": "^1.4.0",
+    "sinon": "^1.14.1"
   }
 }
