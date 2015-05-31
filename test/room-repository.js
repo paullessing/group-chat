@@ -55,4 +55,30 @@ describe('RoomRepository', function(){
 			assert.strictEqual(null, roomRepository.get(lastRoom.id + 1));
 		});
 	});
+
+	describe('#getAll()', function() {
+		it('should return empty when no rooms exist', function() {
+			assert.deepEqual([], roomRepository.getAll());
+		});
+		it('should return all the rooms added', function() {
+			roomRepository.create('room1', 'description1');
+			roomRepository.create('room2', 'description2');
+			
+			assertRoomsMatch([
+			                  { name: 'room1', description: 'description1' },
+			                  { name: 'room2', description: 'description2' }],
+			                  roomRepository.getAll());
+		});
+		
+	});
+	
+	function assertRoomsMatch(expected, actual) {
+		assert.strictEqual(expected.length, actual.length);
+		for (var i = 0; i < expected.length; i++) {
+			var expectedValue = expected[i];
+			var actualValue = actual[i];
+			assert.strictEqual(expectedValue.name, actualValue.name);
+			assert.strictEqual(expectedValue.description, actualValue.description);
+		}
+	}
 });

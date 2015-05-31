@@ -6,7 +6,10 @@ var chatActions;
 
 describe('ChatActions', function() {
 	var userService = {
-		signIn: sinon.stub()
+		signIn: sinon.stub(),
+	};
+	var roomRepository = {
+		getAll: sinon.stub(),
 	};
 	var connection = {};
 	var user = {
@@ -17,6 +20,7 @@ describe('ChatActions', function() {
 	before(function() {
 		mockery.enable();
 		mockery.registerMock('./user-service', userService);
+		mockery.registerMock('./room-repository', roomRepository);
 		mockery.registerAllowable('../lib/chat-actions');
 		chatActions = require('../lib/chat-actions');
 	});
@@ -41,6 +45,15 @@ describe('ChatActions', function() {
 			var result = chatActions.user.$signin(connection, { username: username });
 			
 			assert.strictEqual(user, result);
+		});
+	});
+
+	describe('#server.listRooms()', function() {
+		it('should return all rooms from roomRepository', function() {
+			var rooms = [];
+			roomRepository.getAll.returns(rooms);
+
+			assert.strictEqual(rooms, chatActions.server.listRooms(connection));
 		});
 	});
 });
