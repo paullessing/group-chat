@@ -1,10 +1,9 @@
-var UserRepository = require('../lib/user-repository');
+var userRepository = require('../lib/user-repository');
 var assert = require("assert");
 
 describe('UserRepository', function(){
-	var userRepository;
 	beforeEach(function() {
-		userRepository = new UserRepository();
+		userRepository._reset();
 	});
 	
 	describe('#create()', function() {

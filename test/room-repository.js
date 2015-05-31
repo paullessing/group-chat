@@ -1,10 +1,9 @@
-var RoomRepository = require('../lib/room-repository');
+var roomRepository = require('../lib/room-repository');
 var assert = require("assert");
 
 describe('RoomRepository', function(){
-	var roomRepository;
 	beforeEach(function() {
-		roomRepository = new RoomRepository();
+		roomRepository._reset();
 	});
 	
 	describe('#create()', function() {

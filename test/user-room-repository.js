@@ -1,10 +1,9 @@
-var UserRoomRepository = require('../lib/user-room-repository');
+var repository = require('../lib/user-room-repository');
 
 var assert = require("assert");
 describe('UserRoomRepository', function(){
-	var repository;
 	beforeEach(function() {
-		repository = new UserRoomRepository();
+		repository._reset();
 	});
 	
 	describe('#join()', function() {
@@ -88,6 +87,42 @@ describe('UserRoomRepository', function(){
 			repository.join(user2, room2);
 			
 			assert.deepEqual([room1], repository.getRooms(user1));
+		});
+	});
+	
+	describe('#getUsers()', function() {
+		it('should return empty when there are no users', function() {
+			assert.deepEqual([], repository.getUsers(1));
+		});
+		it('should return empty when all users are in other rooms', function() {
+			var roomId = 1;
+			repository.join(1, 2);
+			repository.join(1, 3);
+			repository.join(2, 2);
+			assert.deepEqual([], repository.getUsers(roomId));
+		});
+		it('should return a user who is in the room', function() {
+			var userId = 1;
+			var roomId = 17;
+			repository.join(userId, roomId);
+			assert.deepEqual([userId], repository.getUsers(roomId));
+		});
+		it('should return all user who are in the room', function() {
+			var userId1 = 1;
+			var userId2 = 7;
+			var roomId = 17;
+			repository.join(userId1, roomId);
+			repository.join(userId2, roomId);
+			assert.deepEqual([userId1, userId2], repository.getUsers(roomId));
+		});
+		it('should only return users who are in the room, and not users in other rooms', function() {
+			var userId1 = 1;
+			var userId2 = 7;
+			var roomId1 = 17;
+			var roomId2 = 18;
+			repository.join(userId1, roomId1);
+			repository.join(userId2, roomId2);
+			assert.deepEqual([userId1], repository.getUsers(roomId1));
 		});
 	});
 });
