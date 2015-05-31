@@ -14,7 +14,11 @@ describe('ChatActions', function() {
 	};
 	var userRoomRepository = {
 		join: sinon.stub(),
-	}
+		getUsers: sinon.stub(),
+	};
+	var userRepository = {
+		get: sinon.stub(),
+	};
 	var connection = {};
 	var user = {
 		id: 0,
@@ -29,6 +33,7 @@ describe('ChatActions', function() {
 	before(function() {
 		mockery.enable();
 		mockery.registerMock('./user-service', userService);
+		mockery.registerMock('./user-repository', userRepository);
 		mockery.registerMock('./room-repository', roomRepository);
 		mockery.registerMock('./user-room-repository', userRoomRepository);
 		
@@ -41,9 +46,11 @@ describe('ChatActions', function() {
 	});
 	beforeEach(function() {
 		userService.signIn.reset();
+		userRepository.get.reset();
 		roomRepository.get.reset();
 		roomRepository.getAll.reset();
 		userRoomRepository.join.reset();
+		userRoomRepository.getUsers.reset();
 	});
 	
 	describe('#user.$signin()', function() {
@@ -80,15 +87,7 @@ describe('ChatActions', function() {
 				chatActions.room.join(connectionWithUser(5), { roomId: roomId });
 			});
 		});
-		it('should throw an exception when the room doesn\'t exist', function() {
-			var roomId = 17;
-			roomRepository.get.withArgs(roomId).returns(null);
-			
-			assert.throws(function() {
-				chatActions.room.join(connectionWithUser(5), { roomId: roomId });
-			});
-		});
-		it('should throw an exception when the room doesn\'t exist', function() {
+		it('should call the UserRoomRepository to join the room', function() {
 			var userId = 5;
 			var roomId = 17;
 			roomRepository.get.withArgs(roomId).returns(room);
@@ -96,6 +95,31 @@ describe('ChatActions', function() {
 			chatActions.room.join(connectionWithUser(userId), { roomId: roomId });
 			assert.ok(userRoomRepository.join.calledOnce);
 			assert.ok(userRoomRepository.join.calledWithExactly(userId, roomId));
+		});
+	});
+
+	describe('#room.listUsers()', function() {
+		it('should throw an exception when the room doesn\'t exist', function() {
+			var roomId = 17;
+			roomRepository.get.withArgs(roomId).returns(null);
+			
+			assert.throws(function() {
+				chatActions.room.listUsers(connection, { roomId: roomId });
+			});
+		});
+		it('should fetch userIds and map them to users', function() {
+			var user1 = { id: 1 };
+			var user2 = { id: 2 };
+			var userIds = [15, 17];
+			var roomId = 19;
+
+			roomRepository.get.withArgs(roomId).returns(room);
+			userRoomRepository.getUsers.withArgs(roomId).returns(userIds);
+			userRepository.get.withArgs(15).returns(user1);
+			userRepository.get.withArgs(17).returns(user2);
+			
+			var result = chatActions.room.listUsers(connection, { roomId: roomId });
+			assert.deepEqual([user1, user2], result);
 		});
 	});
 	
