@@ -106,5 +106,34 @@ describe('Connection', function() {
 			assert.ok(method.calledOnce);
 			assert.ok(method.calledWithExactly(connection, data));
 		});
+		it('should bind events to the socket which call through to the correct methods of callActions', function() {
+			// This test ensures that when binding on() calls to socket, we don't accidentally bind all events to one call
+			chatActions.firstNamespace = {
+				firstAction: sinon.stub(),
+				secondAction: sinon.stub(),
+			};
+			chatActions.secondNamespace = {
+				thirdAction: sinon.stub()
+			};
+
+			var connection = new Connection(socket);
+			connection.userData = {}; // User is considered signed in when userData is set
+			
+			// Call all three actions
+			socket.on.firstCall.args[1](data);
+			socket.on.secondCall.args[1](data);
+			socket.on.thirdCall.args[1](data);
+
+			// Ensure all actions were called (rather than one action thrice)
+			assert.ok(chatActions.firstNamespace.firstAction.calledOnce);
+			assert.ok(chatActions.firstNamespace.secondAction.calledOnce);
+			assert.ok(chatActions.secondNamespace.thirdAction.calledOnce);
+			
+			// Ensure the actions were called in the right order
+			sinon.assert.callOrder(
+					chatActions.firstNamespace.firstAction,
+					chatActions.firstNamespace.secondAction,
+					chatActions.secondNamespace.thirdAction);
+		});
 	});
 });
