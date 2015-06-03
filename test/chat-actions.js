@@ -74,6 +74,14 @@ describe('ChatActions', function() {
 			chatActions.user.$signin(connection, { username: username });
 			assert.equal(user.id, connection.userData.id);
 		});
+		it('should return the user as an emitted event to the socket', function() {
+			var username = 'username';
+			userService.signIn.withArgs(username).returns(user);
+			chatActions.user.$signin(connection, { username: username });
+			assert.ok(connection.socket.emit.calledOnce);
+			assert.ok(connection.socket.emit.calledWithExactly('user/signin', user));
+			assert.strictEqual(user, connection.socket.emit.firstCall.args[1]);
+		});
 	});
 
 	describe('#server.listRooms()', function() {
