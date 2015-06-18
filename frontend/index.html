@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en" ng-app="chatApp">
+<head>
+	<meta charset="utf-8">
+	<title>Waffle</title>
+	<link rel="stylesheet" href="css/style.css">
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+	<script src="http://localhost:3000/socket.io/socket.io.js"></script>
+	<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.3.15/angular.min.js"></script>
+	<script src="js/socket.js"></script>
+	<script src="js/main.js"></script>
+</head>
+
+<body id="home" ng-controller="ChatController">
+
+	<h1>{{name}}</h1>
+
+	<form ng-submit="signin()" ng-if="!user">
+		<input type="text" ng-model="signinForm.username" placeholder="Username" />
+	</form>
+	
+	<div ng-if="user">{{user.username}}</div>
+	
+	<ul>
+		<li ng-repeat="room in rooms">
+			{{ room.name }}<span ng-if="room.description"> &mdash; {{ room.description }}</span>
+		</li>
+	</ul>
+
+	<form ng-submit="createRoom()" ng-if="user">
+		<input type="text" ng-model="newRoom.name" placeholder="Name" />
+		<input type="text" ng-model="newRoom.description" placeholder="Description" />
+		<input type="submit" value="Create Room" />
+	</form>
+	
+	<ul>
+		<li ng-repeat="message in messages">
+			{{ message.username }} &mdash; {{ message.text }}
+		</li>
+	</ul>
+	<form ng-submit="send()" ng-if="user">
+		<input type="text" ng-model="newMessage.text" placeholder="Send message" />
+		<input type="submit" value="Send" />
+	</form>
+</body>
+</html>
