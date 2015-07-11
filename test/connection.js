@@ -7,7 +7,8 @@ var Connection;
 describe('Connection', function() {
 	var chatActions = {};
 	var socket = {
-		on: sinon.stub()
+		on: sinon.stub(),
+		emit: sinon.stub()
 	};
 	var noop = function() {};
 	var data = {};
@@ -29,6 +30,7 @@ describe('Connection', function() {
 			}
 		}
 		socket.on.reset();
+		socket.emit.reset();
 	});
 	
 	describe('#__construct()', function() {
@@ -80,18 +82,19 @@ describe('Connection', function() {
 			assert.ok(method.calledOnce);
 			assert.ok(method.calledWithExactly(connection, data));
 		});
-		it('should not call through to secured methods, and throw an error, when emits event when the user is not signed in', function() {
+		it('should not call through to secured methods, and emit an error, on a secured event when the user is not signed in', function() {
 			var method = sinon.stub();
 			chatActions.secured = {
 				doIt: method
 			};
 			var connection = new Connection(socket);
+			socket.emit.reset(); // Reset the constructor call
 			var callback = socket.on.firstCall.args[1];
 			
-			assert.throws(function() {
-				callback(data);
-			});
+			callback(data);
 			assert.ok(!method.called);
+			assert.ok(socket.emit.calledOnce);
+			assert.ok(socket.emit.calledWith('system/error'));
 		});
 		it('should call through to secured methods when socket emits event when the user is signed in', function() {
 			var method = sinon.stub();
@@ -134,6 +137,18 @@ describe('Connection', function() {
 					chatActions.firstNamespace.firstAction,
 					chatActions.firstNamespace.secondAction,
 					chatActions.secondNamespace.thirdAction);
+		});
+		it('should emit a require-auth message after construction', function() {
+			chatActions.namespace = {
+				firstAction: sinon.stub()
+			};
+
+			new Connection(socket);
+
+			assert.ok(socket.on.called);
+			assert.ok(socket.emit.calledOnce);
+			assert.ok(socket.emit.calledWithExactly('user/require-auth'));
+			sinon.assert.callOrder(socket.on, socket.emit);
 		});
 	});
 });

@@ -109,13 +109,13 @@ describe('ChatActions', function() {
 		});
 	});
 
-	describe('#room.newMessage()', function() {
+	describe('#messages.new()', function() {
 		it('should throw an exception when the room doesn\'t exist', function() {
 			var roomId = 17;
 			roomDoesNotExist(roomId);
 			
 			assert.throws(function() {
-				chatActions.room.newMessage(connectionWithUser(5), { message: 'message', roomId: roomId });
+				chatActions.message.new(connectionWithUser(5), { message: 'message', roomId: roomId });
 			});
 		});
 		it('should insert a message and broadcast it', function() {
@@ -126,7 +126,7 @@ describe('ChatActions', function() {
 			var message = {};
 			messageService.insertMessage.withArgs(userId, messageText, roomId).returns(message);
 			
-			chatActions.room.newMessage(connectionWithUser(userId), { message: messageText, roomId: roomId });
+			chatActions.message.new(connectionWithUser(userId), { message: messageText, roomId: roomId });
 
 			assert.ok(connection.socket.server.emit.calledOnce);
 			assert.ok(connection.socket.server.emit.calledWith('room/message'));
@@ -147,10 +147,21 @@ describe('ChatActions', function() {
 			var userId = 5;
 			var roomId = 17;
 			roomExists(roomId);
-			
+
 			chatActions.room.join(connectionWithUser(userId), { roomId: roomId });
 			assert.ok(userRoomRepository.join.calledOnce);
 			assert.ok(userRoomRepository.join.calledWithExactly(userId, roomId));
+		});
+		it('should notify the client that the room has been joined', function() {
+			var userId = 5;
+			var roomId = 17;
+			roomExists(roomId);
+			userRoomRepository.join.withArgs(userId, roomId).returns(true);
+
+			chatActions.room.join(connectionWithUser(userId), { roomId: roomId });
+
+			assert.ok(connection.socket.emit.calledOnce);
+			assert.ok(connection.socket.emit.calledWithExactly('room/join', { roomId: roomId }));
 		});
 	});
 

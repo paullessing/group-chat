@@ -6,3 +6,5 @@ var Connection = require('./lib/connection');
 io.on('connection', function (socket) {
 	new Connection(socket);
 });
+
+require('./lib/fixtures');
