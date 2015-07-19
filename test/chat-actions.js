@@ -1,43 +1,43 @@
 var mockery = require('mockery');
 var assert = require('assert');
 var sinon = require('sinon');
-var _ = require('underscore');
 
 var chatActions;
 
 describe('ChatActions', function() {
-	var userService = {
-		signIn: sinon.stub(),
-	};
 	var roomRepository = {
 		get: sinon.stub(),
 		getAll: sinon.stub(),
-		create: sinon.stub(),
+		create: sinon.stub()
 	};
 	var userRoomRepository = {
 		join: sinon.stub(),
 		getUsers: sinon.stub(),
+		getRooms: sinon.stub()
 	};
 	var userRepository = {
-		get: sinon.stub(),
+		get: sinon.stub()
 	};
 	var messageService = {
 		insertMessage: sinon.stub(),
-	}
+	};
+	var user = {
+		id: 17,
+		username: 'myUsername'
+	};
 	var connection = {
 		socket: {
 			emit: sinon.stub(),
 			broadcast: {
-				emit: sinon.stub(),
+				emit: sinon.stub()
 			},
 			server: {
-				emit: sinon.stub(),
+				emit: sinon.stub()
+			},
+			decoded_token: {
+				id: user.id
 			}
 		}
-	};
-	var user = {
-		id: 0,
-		username: 'myUsername'
 	};
 	var room = {
 		id: 29,
@@ -48,12 +48,11 @@ describe('ChatActions', function() {
 		id: 29,
 		text: 'room',
 		userId: 1,
-		roomId: 3,
+		roomId: 3
 	};
 	
 	before(function() {
 		mockery.enable();
-		mockery.registerMock('./user-service', userService);
 		mockery.registerMock('./user-repository', userRepository);
 		mockery.registerMock('./room-repository', roomRepository);
 		mockery.registerMock('./message-service', messageService);
@@ -67,7 +66,6 @@ describe('ChatActions', function() {
 		mockery.disable();
 	});
 	beforeEach(function() {
-		userService.signIn.reset();
 		userRepository.get.reset();
 		roomRepository.get.reset();
 		roomRepository.getAll.reset();
@@ -75,61 +73,64 @@ describe('ChatActions', function() {
 		messageService.insertMessage.reset();
 		userRoomRepository.join.reset();
 		userRoomRepository.getUsers.reset();
+		userRoomRepository.getRooms.reset();
 		connection.socket.emit.reset();
 		connection.socket.server.emit.reset();
 		connection.socket.broadcast.emit.reset();
-		delete connection.userData;
-	});
-	
-	describe('#user.$signin()', function() {
-		it('should call userService#signIn with the correct username, and set the id as connection userData', function() {
-			var username = 'username';
-			userService.signIn.withArgs(username).returns(user);
-			chatActions.user.$signin(connection, { username: username });
-			assert.equal(user.id, connection.userData.id);
-		});
-		it('should return the user as an emitted event to the socket', function() {
-			var username = 'username';
-			userService.signIn.withArgs(username).returns(user);
-			chatActions.user.$signin(connection, { username: username });
-			assert.ok(connection.socket.emit.calledOnce);
-			assert.ok(connection.socket.emit.calledWithExactly('user/signin', user));
-			assert.strictEqual(user, connection.socket.emit.firstCall.args[1]);
-		});
 	});
 
 	describe('#server.listRooms()', function() {
 		it('should emit all rooms from roomRepository', function() {
-			var rooms = [];
+			var rooms = [room];
 			roomRepository.getAll.returns(rooms);
 
 			chatActions.server.listRooms(connection);
 			assert.ok(connection.socket.emit.calledOnce);
-			assert.strictEqual(rooms, connection.socket.emit.firstCall.args[1]);
+			assert.ok(connection.socket.emit.calledWith('server/listRooms'));
+			assert.deepEqual(rooms, connection.socket.emit.firstCall.args[1].rooms);
+		});
+		it('should show no joined rooms if the user has joined none', function() {
+			var rooms = [room];
+			var joined = [];
+			roomRepository.getAll.returns(rooms);
+			userRoomRepository.getRooms.withArgs(user.id).returns(joined);
+
+			chatActions.server.listRooms(connection);
+			assert.ok(connection.socket.emit.calledOnce);
+			assert.deepEqual(joined, connection.socket.emit.firstCall.args[1].joined);
+		});
+		it('should return all the rooms the user has joined', function() {
+			var rooms = [room];
+			var joined = [1, 2, 17, 28, 5];
+			roomRepository.getAll.returns(rooms);
+			userRoomRepository.getRooms.withArgs(user.id).returns(joined);
+
+			chatActions.server.listRooms(connection);
+			assert.ok(connection.socket.emit.calledOnce);
+			assert.deepEqual(joined, connection.socket.emit.firstCall.args[1].joined);
 		});
 	});
 
-	describe('#messages.new()', function() {
+	describe('#message.new()', function() {
 		it('should throw an exception when the room doesn\'t exist', function() {
 			var roomId = 17;
 			roomDoesNotExist(roomId);
 			
 			assert.throws(function() {
-				chatActions.message.new(connectionWithUser(5), { message: 'message', roomId: roomId });
+				chatActions.message.new(connection, { message: 'message', roomId: roomId });
 			});
 		});
 		it('should insert a message and broadcast it', function() {
-			var userId = 5;
 			var roomId = 17;
 			var messageText = 'Lorem ipsum';
 			roomExists(roomId);
 			var message = {};
-			messageService.insertMessage.withArgs(userId, messageText, roomId).returns(message);
+			messageService.insertMessage.withArgs(user.id, messageText, roomId).returns(message);
 			
-			chatActions.message.new(connectionWithUser(userId), { message: messageText, roomId: roomId });
+			chatActions.message.new(connection, { message: messageText, roomId: roomId });
 
 			assert.ok(connection.socket.server.emit.calledOnce);
-			assert.ok(connection.socket.server.emit.calledWith('room/message'));
+			assert.ok(connection.socket.server.emit.calledWith('message/new'));
 			assert.strictEqual(message, connection.socket.server.emit.firstCall.args[1]);
 		});
 	});
@@ -140,28 +141,24 @@ describe('ChatActions', function() {
 			roomDoesNotExist(roomId);
 			
 			assert.throws(function() {
-				chatActions.room.join(connectionWithUser(5), { roomId: roomId });
+				chatActions.room.join(connection, { roomId: roomId });
 			});
 		});
 		it('should call the UserRoomRepository to join the room', function() {
-			var userId = 5;
 			var roomId = 17;
 			roomExists(roomId);
 
-			chatActions.room.join(connectionWithUser(userId), { roomId: roomId });
+			chatActions.room.join(connection, { roomId: roomId });
 			assert.ok(userRoomRepository.join.calledOnce);
-			assert.ok(userRoomRepository.join.calledWithExactly(userId, roomId));
+			assert.ok(userRoomRepository.join.calledWithExactly(user.id, roomId));
 		});
-		it('should notify the client that the room has been joined', function() {
-			var userId = 5;
+		it('should return a list of all rooms to the user', function() {
 			var roomId = 17;
 			roomExists(roomId);
-			userRoomRepository.join.withArgs(userId, roomId).returns(true);
 
-			chatActions.room.join(connectionWithUser(userId), { roomId: roomId });
-
-			assert.ok(connection.socket.emit.calledOnce);
-			assert.ok(connection.socket.emit.calledWithExactly('room/join', { roomId: roomId }));
+			expectAndVerifyServerRoomList(function() {
+				chatActions.room.join(connection, { roomId: roomId });
+			});
 		});
 	});
 
@@ -208,55 +205,66 @@ describe('ChatActions', function() {
 			var roomName = 'room-name';
 			roomRepository.create.withArgs(roomName, roomDescription).returns(room);
 		
-			chatActions.room.create(connectionWithUser(31), { roomName: roomName, roomDescription: roomDescription });
+			chatActions.room.create(connection, { roomName: roomName, roomDescription: roomDescription });
 			assert.ok(roomRepository.create.calledOnce);
 			assert.ok(roomRepository.create.calledWithExactly(roomName, roomDescription));
 		});
 		it('should make the creating user join the new room', function() {
 			var roomDescription = 'description';
 			var roomName = 'room-name';
-			var userId = 31;
 			roomRepository.create.withArgs(roomName, roomDescription).returns(room);
 		
-			chatActions.room.create(connectionWithUser(userId), { roomName: roomName, roomDescription: roomDescription });
+			chatActions.room.create(connection, { roomName: roomName, roomDescription: roomDescription });
 			
 			assert.ok(userRoomRepository.join.calledOnce);
-			assert.ok(userRoomRepository.join.calledWithExactly(userId, room.id));
+			assert.ok(userRoomRepository.join.calledWithExactly(user.id, room.id));
 		});
 		it('should notify the user of the new room', function() {
 			var roomDescription = 'description';
 			var roomName = 'room-name';
 			roomRepository.create.withArgs(roomName, roomDescription).returns(room);
-		
-			chatActions.room.create(connectionWithUser(31), { roomName: roomName, roomDescription: roomDescription });
-			
-			assert.ok(connection.socket.emit.calledOnce);
-			assert.ok(connection.socket.emit.calledWithExactly('room/create', room));
+
+			chatActions.room.create(connection, { roomName: roomName, roomDescription: roomDescription });
+
+			assert.ok(connection.socket.emit.firstCall.calledWithExactly('room/create', room));
 		});
-		it('should notify everyone of all the current rooms', function() {
+		it('should notify everyone of the new room', function() {
 			var roomDescription = 'description';
 			var roomName = 'room-name';
 			roomRepository.create.withArgs(roomName, roomDescription).returns(room);
-			var rooms = [room];
-			roomRepository.getAll.returns(rooms);
-		
-			chatActions.room.create(connectionWithUser(31), { roomName: roomName, roomDescription: roomDescription });
-			
-			assert.ok(connection.socket.server.emit.calledOnce);
-			assert.ok(connection.socket.server.emit.calledWithExactly('server/listRooms', rooms));
-			assert.strictEqual(rooms, connection.socket.server.emit.firstCall.args[1]);
+
+			var expect = expectServerRoomList();
+
+			chatActions.room.create(connection, { roomName: roomName, roomDescription: roomDescription });
+
+			assert.ok(connection.socket.emit.calledWith('server/listRooms'));
+			assert.deepEqual(expect, connection.socket.emit.secondCall.args[1]);
 		});
 	});
-	
-	function connectionWithUser(id) {
-		connection.userData = { id: id };
-		return connection;
-	}
 
 	function roomDoesNotExist(roomId) {
 		roomRepository.get.withArgs(roomId).returns(null);
 	}
 	function roomExists(roomId) {
 		roomRepository.get.withArgs(roomId).returns(room);
+	}
+
+	function expectServerRoomList() {
+		var rooms = [room];
+		var joined = [1, 2, 17, 28, 5];
+		roomRepository.getAll.returns(rooms);
+		userRoomRepository.getRooms.withArgs(user.id).returns(joined);
+
+		return { rooms: rooms, joined: joined };
+	}
+
+	function expectAndVerifyServerRoomList(actionCall) {
+		var expect = expectServerRoomList();
+
+		actionCall();
+
+		assert.ok(connection.socket.emit.calledOnce);
+		assert.ok(connection.socket.emit.calledWith('server/listRooms'));
+		assert.deepEqual(expect, connection.socket.emit.firstCall.args[1]);
 	}
 });
